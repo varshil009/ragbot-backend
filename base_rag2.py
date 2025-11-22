@@ -805,10 +805,10 @@ class rag_process:
             # Semantic search with Qdrant
             qdrant_results = self.client.search(
                 collection_name=self.REFERENCE_BOOKS[self.book_name],
-                query_vector=query_em,
+                query=query_em,
                 with_payload=True,
                 limit=5
-            )
+            ).points
             qdrant_chunks = [res.payload['text'] for res in qdrant_results]
             
             # Keyword search with BM25
