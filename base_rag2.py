@@ -803,7 +803,7 @@ class rag_process:
         """Chain to perform hybrid retrieval using Qdrant and BM25."""
         def hybrid_retrieval(query_em, query):
             # Semantic search with Qdrant
-            qdrant_results = self.client.search(
+            qdrant_results = self.client.search_points(
                 collection_name=self.REFERENCE_BOOKS[self.book_name],
                 query=query_em,
                 with_payload=True,
