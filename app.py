@@ -4,23 +4,25 @@ from flask_cors import CORS
 import os
 import traceback
 from base_rag2 import rag_process
-
 app = Flask(__name__)
 
-# ----------------------------
-# Backend config
-# ----------------------------
 app.secret_key = os.urandom(24)
 
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = './session_data'
 app.config['SESSION_COOKIE_NAME'] = 'ragbot_session'
+
+# IMPORTANT FIX FOR GITHUB PAGES → RAILWAY
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 Session(app)
 
-# Allow frontend (GitHub Pages) to talk to backend
+# Allow frontend
 CORS(app, supports_credentials=True)
+
 
 REFERENCE_BOOKS = [
     'deep learning with python',
