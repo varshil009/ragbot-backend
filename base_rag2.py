@@ -273,7 +273,7 @@ class Embedd:
         print("==> generating embeddings with Voyage...")
         response = self.client.embed(
             model=self.model_name,
-            input=chunks
+            texts=chunks
         )
         # Voyage returns list of lists (float vectors)
         return np.array(response.embeddings)
