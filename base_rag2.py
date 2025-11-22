@@ -268,15 +268,29 @@ class Embedd:
     def generate_embeddings(self, chunks):
         """
         chunks: list of text passages
-        returns: numpy array of embeddings
+        returns: numpy array of embeddings (768-dim)
         """
         print("==> generating embeddings with Voyage...")
+
+        # DO NOT TOUCH THE API
         response = self.client.embed(
             model=self.model_name,
             texts=chunks
         )
-        # Voyage returns list of lists (float vectors)
-        return np.array(response.embeddings)
+
+        emb = np.array(response.embeddings)   # shape (N, 512)
+        N, D = emb.shape                      # D = 512
+
+        # Duplicate first 256 dims
+        prefix = emb[:, :256]                # shape (N, 256)
+
+        # Final = prefix(256) + original(512) = 768
+        final_emb = np.concatenate([prefix, emb], axis=1)
+
+        print("Padded embedding from 512 -> 768 (using first 256 dims)")
+
+        return final_emb
+
 
     @staticmethod
     def cosine_similarity_numpy(v1, v2):
