@@ -762,15 +762,15 @@ class rag_process:
         print("Connection successful with Qdrant client")
         
         # Initialize embedding model
-        self.em = embedd()
+        self.em = Embedd()
 
         # Store book name
         self.book_name = book_name
         print(f"RAG process initialized for book: {self.book_name}")
         
         # Initialize BM25 retriever with the provided documents
-        self.bm25_retriever = BM25Retriever.from_texts(documents)
-        self.bm25_retriever.k = 5  # Number of top chunks to retrieve
+        #self.bm25_retriever = BM25Retriever.from_texts(documents)
+        #self.bm25_retriever.k = 5  # Number of top chunks to retrieve
         
         # Define reference books and their Qdrant collection names
         self.REFERENCE_BOOKS = {
@@ -778,7 +778,7 @@ class rag_process:
             'python data science handbook': "data_ds_collection"
         }
         # Initialize Google GenAI client for LangChain integration
-        self.genai_client = genai.Client(api_key=GOOGLE_API_KEY)
+        self.genai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
         # Create custom LLM wrapper for LangChain
         self.llm = CustomGoogleGenAI(client=self.genai_client, model="gemini-2.5-flash")
 
@@ -812,11 +812,11 @@ class rag_process:
             qdrant_chunks = [res.payload['text'] for res in qdrant_results]
             
             # Keyword search with BM25
-            bm25_results = self.bm25_retriever.invoke(query)
-            bm25_chunks = [doc.page_content for doc in bm25_results]
+            #bm25_results = self.bm25_retriever.invoke(query)
+            #bm25_chunks = [doc.page_content for doc in bm25_results]
             
             # Combine results from both retrievers
-            top_chunks = list(set(qdrant_chunks + bm25_chunks))  # Remove duplicates
+            top_chunks = list(set(qdrant_chunks))  # Remove duplicates
             return "\n__new_chunk__\n".join(top_chunks)
         
         return hybrid_retrieval
