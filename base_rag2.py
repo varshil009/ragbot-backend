@@ -5,8 +5,6 @@ import io
 
 import voyageai
 # for tokenizers and reading pdf
-from transformers import AutoTokenizer, AutoModel
-import torch
 import fitz  # PyMuPDF
 import pdfplumber
 
