@@ -1,7 +1,5 @@
 import numpy as np
 #import matplotlib.pyplot as plt
-from PIL import Image
-import io
 
 import voyageai
 # for tokenizers and reading pdf
@@ -16,12 +14,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import pickle
 
-from langchain_core.prompts import ChatPromptTemplate
-#from langchain_community.retrievers import BM25Retriever
-from langchain_core.language_models.llms import LLM as LangChainLLM
-from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_core.messages import AIMessage, BaseMessage
-from typing import Any, List, Optional
+from typing import Any
 from google import genai
 import os
 
@@ -124,8 +117,7 @@ class pdf_processing:
         
         chunks = np.array(list(textwise_page.keys()))
         return chunks, textwise_page
-
-
+        
         #def extract_text_and_chunks(self):
         # extract text
         """with fitz.open(self.path) as pdf:
@@ -165,35 +157,6 @@ class pdf_processing:
             self.chunks.append(new_chunk)
         return self.chunks
         """
-    
-    def check_caption(self, cap):
-        k = cap.lower()
-        return any(keyword in k for keyword in ["figure", "fig", "chart", "table", "graph"])
-
-    def search_image_caption(self, margin, text_blocks, image_bbox):
-        text_positions = {
-                        'above': [],
-                        'below': [],
-                        'inside': []
-                        }
-    
-        # Scan text blocks once and categorize them
-        for block in text_blocks:
-            y_pos = block[1]
-            if y_pos > image_bbox[3] and y_pos < image_bbox[3] + margin:
-                text_positions['below'].append(block[4])
-            elif y_pos < image_bbox[3] and y_pos > image_bbox[1]:
-                text_positions['inside'].append(block[4])
-            elif y_pos < image_bbox[1] and y_pos > image_bbox[1] + margin:
-                text_positions['above'].append(block[4])
-        
-        # Check each position for captions
-        for position in ['below', 'inside', 'above']:
-            text = ' '.join(text_positions[position])
-            if self.check_caption(text):
-                return text
-                
-        return ""
 
         """# Find description text below image
         descr = ""
@@ -218,43 +181,6 @@ class pdf_processing:
                 for block in text_blocks:
                     if block[1] < image_bbox[1] and block[1] > image_bbox[1] + margin:
                         descr += " " + block[4]"""
-
-    def extract_captions_and_images(self):
-        images = {}
-
-        with fitz.open(self.path) as fitz_pdf:
-            for page_num, page in enumerate(fitz_pdf):
-                #print(f"Processing Page {page_num + 1}")
-
-                # First get the raw image list
-                image_list = page.get_images()
-                if image_list:
-                    #print(f"Page {page_num + 1} contains {len(image_list)} image(s).")
-
-                    # Get locations of images on page
-                    img_info_list = page.get_image_info()
-
-                    # Extract text blocks with their bounding boxes
-                    text_blocks = page.get_text("words")
-
-                    # Process each image
-                    for img_index, img in enumerate(image_list):
-                        # Get the image location from img_info_list
-                        img_info = img_info_list[img_index]
-                        image_bbox = img_info['bbox']
-                        #print(f"Image bounding box: {image_bbox}")
-
-                        # Extract the raw image data
-                        base_image = fitz_pdf.extract_image(img[0])
-                        image_bytes = base_image["image"]
-
-                        # getthe image caption
-                        descr = self.search_image_caption(20, text_blocks, image_bbox)
-
-                        # Convert to PIL Image while maintaining original quality
-                        images[descr] = [Image.open(io.BytesIO(image_bytes)), image_bbox]
-
-        return images
 
 
 
@@ -321,17 +247,6 @@ class Embedd:
                 page_nums.extend(pages)
 
         return "\n".join(ref), page_nums
-
-
-    def fetch_image(self, query, cap_embeddings, cap_img):
-        print("==> fetching image")
-        query_embedding = self.generate_embeddings([query])[0]
-        similarities = self.cosine_similarity_numpy(np.array([query_embedding]), cap_embeddings)
-        similarities = np.where(similarities >= 0.8, similarities, -1)
-        best_match_index = similarities.argsort()[0, ::-1][0]
-        img = cap_img[list(cap_img.keys())[best_match_index]][0]
-        print("==> image fetched successfully")
-        return img
 
 class LLM:
   def __init__(self):
@@ -459,140 +374,6 @@ class LLM:
     
     print("==> final response received")
     return result
-
-class CustomGoogleGenAI(LangChainLLM):
-    """Custom LangChain LLM wrapper for Google GenAI client."""
-    
-    client: Any
-    model: str = "gemini-2.5-flash"
-    temperature: float = 0.7
-    top_k: int = 40
-    top_p: float = 0.95
-    max_output_tokens: int = 1024
-    
-    @property
-    def _llm_type(self) -> str:
-        return "google_genai"
-    
-    def _call(
-        self,
-        prompt: str,
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
-        **kwargs: Any,
-    ) -> str:
-        """Call the Google GenAI API."""
-        try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config={
-                    "temperature": self.temperature,
-                    "top_k": self.top_k,
-                    "top_p": self.top_p,
-                    "max_output_tokens": self.max_output_tokens,
-                }
-            )
-            
-            # Extract text from response - ensure we always return a valid string
-            text_result = None
-            
-            # Try different ways to extract text based on Google GenAI response structure
-            try:
-                # Method 1: Check if response has text attribute directly (Google GenAI SDK property)
-                # This is often the easiest way - the SDK may provide this
-                if hasattr(response, 'text'):
-                    try:
-                        text_attr = response.text
-                        if text_attr is not None:
-                            text_result = str(text_attr).strip()
-                            if text_result:
-                                return text_result
-                    except Exception as e:
-                        print(f"Error accessing response.text: {e}")
-                
-                # Method 2: Extract from candidates structure (most common)
-                elif hasattr(response, 'candidates') and response.candidates:
-                    if len(response.candidates) > 0:
-                        candidate = response.candidates[0]
-                        if hasattr(candidate, 'content'):
-                            content = candidate.content
-                            # Check for parts array
-                            if hasattr(content, 'parts'):
-                                parts = content.parts
-                                if parts and len(parts) > 0:
-                                    for part in parts:
-                                        # Try to get text from part
-                                        if hasattr(part, 'text') and part.text is not None:
-                                            potential_text = str(part.text).strip()
-                                            if potential_text:
-                                                text_result = potential_text
-                                                break
-                                        elif isinstance(part, str) and part.strip():
-                                            text_result = str(part).strip()
-                                            break
-                                        # Try accessing part attributes
-                                        elif hasattr(part, '__dict__'):
-                                            for attr in dir(part):
-                                                if not attr.startswith('_') and attr not in ['text', 'content']:
-                                                    try:
-                                                        val = getattr(part, attr)
-                                                        if isinstance(val, str) and val.strip():
-                                                            text_result = val.strip()
-                                                            break
-                                                    except:
-                                                        pass
-                            # Check if content has text directly
-                            if not text_result and hasattr(content, 'text') and content.text is not None:
-                                text_result = str(content.text).strip()
-                
-                # Method 3: Try to get text from response object directly
-                if not text_result and hasattr(response, 'text'):
-                    text_result = str(response.text).strip()
-                    
-            except Exception as extract_error:
-                print(f"Error extracting text from response: {extract_error}")
-                import traceback
-                traceback.print_exc()
-            
-            # Fallback: Try response.text property (Google GenAI SDK may provide this)
-            if not text_result:
-                try:
-                    if hasattr(response, 'text'):
-                        text_prop = response.text
-                        if text_prop:
-                            text_result = str(text_prop).strip()
-                except Exception as e:
-                    print(f"Error accessing response.text: {e}")
-            
-            # Last resort: Debug and provide error
-            if not text_result:
-                print(f"WARNING: Could not extract text. Response type: {type(response)}")
-                if hasattr(response, 'candidates') and response.candidates:
-                    print(f"Candidates count: {len(response.candidates)}")
-                    if len(response.candidates) > 0:
-                        cand = response.candidates[0]
-                        print(f"Candidate type: {type(cand)}")
-                        if hasattr(cand, 'content'):
-                            print(f"Content type: {type(cand.content)}")
-                            print(f"Content attributes: {[a for a in dir(cand.content) if not a.startswith('_')]}")
-                text_result = "Error: Could not extract text from API response. Check console for details."
-            
-            # Ensure we never return None or empty - LangChain Pydantic requires a non-empty string
-            if not text_result or len(text_result) == 0:
-                text_result = "No response generated from the model."
-            
-            # Final validation - must be a string
-            if not isinstance(text_result, str):
-                text_result = str(text_result)
-            
-            return text_result
-            
-        except Exception as e:
-            print(f"Error calling Google GenAI: {str(e)}")
-            print(f"Response type: {type(response) if 'response' in locals() else 'N/A'}")
-            # Return error message as string to prevent Pydantic validation error
-            return f"Error: {str(e)}"
 
 """class rag_process:
     def __init__(self, path):
@@ -764,155 +545,110 @@ class load_db:
 class rag_process:
     def __init__(self, book_name):
         """
-        Initialize the RAG process with Qdrant, BM25, and LangChain chains.
-        
+        Initialize the RAG process with Qdrant and direct Google GenAI calls.
+
         Args:
             book_name (str): Name of the book to search in.
-            documents (list): List of text chunks for BM25 retrieval.
         """
         # Initialize Qdrant client
         db = load_db(book_name)
         self.client, documents = db.info()
         print("Connection successful with Qdrant client")
-        
+
         # Initialize embedding model
         self.em = Embedd()
 
         # Store book name
         self.book_name = book_name
         print(f"RAG process initialized for book: {self.book_name}")
-        
-        # Initialize BM25 retriever with the provided documents
-        #self.bm25_retriever = BM25Retriever.from_texts(documents)
-        #self.bm25_retriever.k = 5  # Number of top chunks to retrieve
-        
+
         # Define reference books and their Qdrant collection names
         self.REFERENCE_BOOKS = {
             'deep learning with python': "data_dl_collection",
             'python data science handbook': "data_ds_collection"
         }
-        # Initialize Google GenAI client for LangChain integration
+
+        # Initialize Google GenAI client
         self.genai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-        # Create custom LLM wrapper for LangChain
-        self.llm = CustomGoogleGenAI(client=self.genai_client, model="gemini-2.5-flash")
 
-        # Define LangChain chains using LCEL (LangChain Expression Language)
-        self.query_expansion_chain = self._create_query_expansion_chain()
-        self.hybrid_retrieval_chain = self._create_hybrid_retrieval_chain()
-        self.response_generation_chain = self._create_response_generation_chain()
+    def _call_llm(self, prompt: str) -> str:
+        """Call Google GenAI API directly and extract text response."""
+        try:
+            response = self.genai_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config={
+                    "temperature": 0.7,
+                    "top_k": 40,
+                    "top_p": 0.95,
+                    "max_output_tokens": 1024,
+                }
+            )
 
-        
-    def _create_query_expansion_chain(self):
-        """Chain to enhance and expand user queries using LCEL."""
-        prompt = ChatPromptTemplate.from_template(
-            """Expand this search query with 3-5 relevant terms and synonyms.
-            Maintain the core meaning but add technical variations.
-            Original: {query}
-            Enhanced:"""
-        )
-        # Use LCEL with pipe operator instead of LLMChain
-        return prompt | self.llm
+            # Extract text from response
+            if hasattr(response, 'text') and response.text is not None:
+                return str(response.text).strip()
+            elif hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    parts = candidate.content.parts
+                    if parts and len(parts) > 0 and hasattr(parts[0], 'text'):
+                        return str(parts[0].text).strip()
 
-    def _create_hybrid_retrieval_chain(self):
-        """Chain to perform hybrid retrieval using Qdrant and BM25."""
-        def hybrid_retrieval(query_em, query):
-            # Semantic search with Qdrant
-            qdrant_results = self.client.query_points(
-                collection_name=self.REFERENCE_BOOKS[self.book_name],
-                query=query_em,  # Note: parameter name is 'query', not 'query_vector'
-                with_payload=True,
-                limit=5
-            ).points
+            return "Error: Could not extract text from response"
+        except Exception as e:
+            print(f"Error calling Google GenAI: {e}")
+            return f"Error: {str(e)}"
 
-            qdrant_chunks = [res.payload['text'] for res in qdrant_results]
-            
-            # Keyword search with BM25
-            #bm25_results = self.bm25_retriever.invoke(query)
-            #bm25_chunks = [doc.page_content for doc in bm25_results]
-            
-            # Combine results from both retrievers
-            top_chunks = list(set(qdrant_chunks))  # Remove duplicates
-            return "\n__new_chunk__\n".join(top_chunks)
-        
-        return hybrid_retrieval
+    def _expand_query(self, query: str) -> str:
+        """Expand user query with relevant terms using f-string prompt."""
+        prompt = f"""Expand this search query with 3-5 relevant terms and synonyms.
+Maintain the core meaning but add technical variations.
+Original: {query}
+Enhanced:"""
+        return self._call_llm(prompt)
 
-    def _create_response_generation_chain(self):
-        """Chain to generate the final response using the LLM with LCEL."""
-        prompt = ChatPromptTemplate.from_template(
-            """Use this context to answer the question:
-            Context: {context}
-            Question: {query}
-            Provide a comprehensive answer (~400 tokens):"""
-        )
-        # Use LCEL with pipe operator instead of LLMChain
-        return prompt | self.llm
+    def _retrieve_context(self, query_em, query: str) -> str:
+        """Perform retrieval using Qdrant."""
+        qdrant_results = self.client.query_points(
+            collection_name=self.REFERENCE_BOOKS[self.book_name],
+            query=query_em,
+            with_payload=True,
+            limit=5
+        ).points
+
+        qdrant_chunks = [res.payload['text'] for res in qdrant_results]
+        top_chunks = list(set(qdrant_chunks))  # Remove duplicates
+        return "\n__new_chunk__\n".join(top_chunks)
+
+    def _generate_response(self, query: str, context: str) -> str:
+        """Generate final response using f-string prompt."""
+        prompt = f"""Use this context to answer the question:
+Context: {context}
+Question: {query}
+Provide a comprehensive answer (~400 tokens):"""
+        return self._call_llm(prompt)
 
     def execute(self, query):
         """
-        Execute the RAG process for the given query using LangChain chains.
-        
+        Execute the RAG process for the given query.
+
         Args:
             query (str): User query.
-        
+
         Returns:
             str: Final response generated by the LLM.
         """
-        # Step 1: Query expansion using LCEL invoke
-        enhanced_query_response = self.query_expansion_chain.invoke({"query": query})
-        # Extract text from Pydantic AIMessage object (LangChain returns Pydantic models)
-        enhanced_query = self._extract_text_from_response(enhanced_query_response)
-        
+        # Step 1: Query expansion
+        enhanced_query = self._expand_query(query)
+
         # Step 2: Generate embeddings for the enhanced query
         query_em = self.em.generate_embeddings([enhanced_query])[0]
-        
-        # Step 3: Perform hybrid retrieval
-        rag_response = self.hybrid_retrieval_chain(query_em, query)
-        
-        # Step 4: Generate final response using LCEL invoke
-        final_response_obj = self.response_generation_chain.invoke(
-            {
-                "query": query,
-                "context": rag_response
-            }
-        )
-        # Extract text from Pydantic AIMessage object (LangChain returns Pydantic models)
-        final_response = self._extract_text_from_response(final_response_obj)
-        
+
+        # Step 3: Retrieve relevant context
+        rag_response = self._retrieve_context(query_em, query)
+
+        # Step 4: Generate final response
+        final_response = self._generate_response(query, rag_response)
+
         return final_response
-    
-    def _extract_text_from_response(self, response_obj: Any) -> str:
-        """
-        Extract text from LangChain response objects (which are Pydantic models).
-        
-        LangChain chains return AIMessage objects (Pydantic BaseMessage models),
-        which need to be properly extracted before JSON serialization for the frontend.
-        
-        Args:
-            response_obj: Response from LangChain chain (could be AIMessage, str, or other)
-        
-        Returns:
-            str: Extracted text content
-        """
-        # Handle Pydantic AIMessage objects from LangChain
-        if isinstance(response_obj, (AIMessage, BaseMessage)):
-            return response_obj.content
-        
-        # Handle objects with 'content' attribute (Pydantic models often have this)
-        if hasattr(response_obj, 'content'):
-            content = response_obj.content
-            # If content is a list (like in some message formats), extract text
-            if isinstance(content, list) and len(content) > 0:
-                if hasattr(content[0], 'text'):
-                    return content[0].text
-                elif isinstance(content[0], str):
-                    return content[0]
-            elif isinstance(content, str):
-                return content
-        
-        # Handle string responses
-        if isinstance(response_obj, str):
-            return response_obj
-        
-        # Fallback: convert to string (this handles Pydantic model serialization)
-        # Pydantic models have __str__ and __repr__ methods that work well
-        return str(response_obj)
