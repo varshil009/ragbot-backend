@@ -1,7 +1,5 @@
 numpy
 qdrant-client==1.12.1
-langchain-core
-langchain-community
 google-genai
 flask
 flask-session
