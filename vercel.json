@@ -4,12 +4,44 @@
     {
       "src": "api/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/select_book",
       "dest": "api/index.py"
+    },
+    {
+      "src": "/status",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/ask",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/end_session",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/(.*\\.(js|css|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot))",
+      "dest": "public/$1"
+    },
+    {
+      "src": "/",
+      "dest": "public/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
     }
   ]
 }

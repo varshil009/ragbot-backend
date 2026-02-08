@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAGBOT - AI Book Assistant</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <h1><i class="fas fa-robot"></i> RAGBOT</h1>
+            <p class="subtitle">Your AI Book Discussion Assistant</p>
+        </header>
+
+        <main class="main-content">
+            <div id="book-selection" class="section">
+                <h2>Select a Book</h2>
+                <div class="selection-container">
+                    <select id="book-select" class="book-select">
+                        <option value="">Choose a book...</option>
+                        <option value="deep learning with python">Deep Learning with Python</option>
+                        <option value="python data science handbook">Python Data Science Handbook</option>
+                    </select>
+                    <button onclick="selectBook()" class="primary-button">
+                        <i class="fas fa-book-open"></i> Start Reading
+                    </button>
+                </div>
+            </div>
+
+            <div id="processing-message" class="section" style="display: none;">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading book content...</p>
+                </div>
+            </div>
+
+            <div id="chat-interface" class="section" style="display: none;">
+                <div id="chat-messages" class="messages-container">
+                    <!-- Messages will be inserted here -->
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="input-wrapper">
+                        <input
+                            type="text"
+                            id="question-input"
+                            placeholder="Ask a question about the book..."
+                            autocomplete="off"
+                        >
+                        <button onclick="askQuestion()" class="send-button">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <button onclick="endSession()" class="secondary-button">
+                <i class="fas fa-power-off"></i> End Session
+            </button>
+        </footer>
+    </div>
+    <script src="./script.js"></script>
+</body>
+</html>
