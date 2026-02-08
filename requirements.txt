@@ -2,7 +2,5 @@ numpy
 qdrant-client==1.12.1
 google-genai
 flask
-flask-session
 flask-cors
-gunicorn
 voyageai
