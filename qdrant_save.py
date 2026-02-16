@@ -3,8 +3,8 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 import pickle
 import os
 
-client = QdrantClient(url="https://efc0d45f-e82c-4ba4-8d9a-f0e470a9784c.europe-west3-0.gcp.cloud.qdrant.io:6333", 
-            api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.NIaUVZs6o3pJB6oKYm3BnR__VvodedNOSFq0bPso3L4",
+client = QdrantClient(url="", 
+            api_key="",
             )
 def ensure_collection_exists(collection_name, vector_size):
     """Create collection if it doesn't exist."""
