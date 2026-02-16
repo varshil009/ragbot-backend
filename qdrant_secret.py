@@ -1,7 +1,7 @@
 from qdrant_client import QdrantClient
 
 qdrant_client = QdrantClient(
-    url="", 
+    url=".", 
     api_key="",
 )
 
